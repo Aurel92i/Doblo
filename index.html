@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Doblo Rush</title>
+    <style>
+        :root {
+            --road-surface: #4a4a4a;
+            --road-border: #1f1f1f;
+            --lane-mark: rgba(255, 255, 255, 0.7);
+            --doblo-white: #f7f7f7;
+            --doblo-gray: #dfe3e7;
+            --doblo-red: #d72638;
+            --doblo-blue: #2280c3;
+            --hud-bg: rgba(15, 15, 20, 0.65);
+            --hud-text: #f1f1f1;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at top, #222 0%, #111 60%, #070708 100%);
+            color: #202225;
+        }
+
+        #game-wrapper {
+            width: min(92vw, 420px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #hud {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-radius: 16px;
+            background: var(--hud-bg);
+            color: var(--hud-text);
+            font-size: 15px;
+            letter-spacing: 0.5px;
+        }
+
+        #hud span {
+            font-weight: 600;
+        }
+
+        #road {
+            position: relative;
+            width: 100%;
+            height: min(72vh, 640px);
+            min-height: 480px;
+            background: var(--road-surface);
+            border-radius: 18px;
+            border: 8px solid var(--road-border);
+            overflow: hidden;
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.38);
+        }
+
+        #road::before,
+        #road::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                var(--lane-mark) 0 24px,
+                transparent 24px 52px
+            );
+            opacity: 0.65;
+        }
+
+        #road::before {
+            left: calc(33.33% - 4px);
+        }
+
+        #road::after {
+            right: calc(33.33% - 4px);
+        }
+
+        #car {
+            position: absolute;
+            bottom: 32px;
+            left: 50%;
+            width: 74px;
+            height: 142px;
+            transform: translateX(-50%);
+            background: var(--doblo-white);
+            border-radius: 22px 22px 18px 18px;
+            border: 4px solid var(--doblo-gray);
+            box-shadow: 0 16px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        #car::before {
+            content: "";
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            height: 28px;
+            border-radius: 12px;
+            background: repeating-linear-gradient(135deg, var(--doblo-red) 0 14px, var(--doblo-white) 14px 26px);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.18);
+        }
+
+        #car::after {
+            content: "DOBLO";
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            letter-spacing: 2px;
+            font-weight: 700;
+            color: var(--doblo-red);
+        }
+
+        #car .roof {
+            position: absolute;
+            top: 44px;
+            left: 14px;
+            right: 14px;
+            height: 54px;
+            background: linear-gradient(160deg, #fdfdfd 0%, #e9eef2 45%, #d9dfe6 100%);
+            border-radius: 16px;
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.18);
+        }
+
+        #car .light {
+            position: absolute;
+            top: 4px;
+            width: 16px;
+            height: 22px;
+            background: linear-gradient(145deg, #fff9a6 0%, #ffdc62 60%, #f3b632 100%);
+            border-radius: 12px;
+            box-shadow: 0 0 6px rgba(255, 220, 98, 0.75);
+        }
+
+        #car .light.left {
+            left: 6px;
+            transform: rotate(6deg);
+        }
+
+        #car .light.right {
+            right: 6px;
+            transform: rotate(-6deg);
+        }
+
+        #car .signal {
+            position: absolute;
+            top: 78px;
+            width: 22px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(160deg, #c0d5e5 0%, #8db3d3 55%, #5584af 100%);
+        }
+
+        #car .signal.left {
+            left: 10px;
+        }
+
+        #car .signal.right {
+            right: 10px;
+        }
+
+        #car .beacon {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            width: 22px;
+            height: 12px;
+            transform: translateX(-50%);
+            background: radial-gradient(circle at center, var(--doblo-blue) 0%, #0a4f8d 100%);
+            border-radius: 10px 10px 6px 6px;
+            box-shadow: 0 0 10px rgba(34, 128, 195, 0.8);
+        }
+
+        .obstacle {
+            position: absolute;
+            top: -160px;
+            width: 72px;
+            height: 140px;
+            background: linear-gradient(170deg, #2c2c2c 0%, #3b3b3b 40%, #1e1e1e 100%);
+            border-radius: 20px;
+            border: 4px solid #191919;
+            box-shadow: 0 14px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .obstacle::before {
+            content: "";
+            position: absolute;
+            top: 16px;
+            left: 12px;
+            right: 12px;
+            height: 22px;
+            background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0 14px, rgba(255, 0, 0, 0.8) 14px 26px);
+            border-radius: 10px;
+        }
+
+        .obstacle::after {
+            content: "STOP";
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 11px;
+            letter-spacing: 2px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            background: rgba(7, 7, 12, 0.65);
+            color: #f7f7f7;
+            text-align: center;
+            transition: opacity 180ms ease;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .overlay-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 26px 28px;
+            border-radius: 18px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            max-width: 80%;
+        }
+
+        #overlay-message {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        #overlay-subtext {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.78);
+        }
+
+        #start-button {
+            padding: 10px 18px;
+            border-radius: 14px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #11151c;
+            background: linear-gradient(130deg, #ffef85 0%, #ffbf3c 100%);
+            cursor: pointer;
+            transition: transform 120ms ease;
+        }
+
+        #start-button:active {
+            transform: scale(0.96);
+        }
+
+        #controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        #controls button {
+            flex: 1 1 0;
+            padding: 16px 0;
+            border-radius: 16px;
+            border: none;
+            background: rgba(255, 255, 255, 0.12);
+            color: #f6f8fb;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            backdrop-filter: blur(3px);
+        }
+
+        #controls button:active {
+            background: rgba(255, 255, 255, 0.24);
+        }
+
+        @media (max-width: 520px) {
+            #road {
+                min-height: 440px;
+            }
+
+            #controls button {
+                font-size: 18px;
+                padding: 18px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="hud">
+            <div>Score: <span id="score-value">0.0</span></div>
+            <div>Record: <span id="best-value">0.0</span></div>
+        </div>
+        <div id="road">
+            <div id="car">
+                <div class="roof"></div>
+                <div class="beacon"></div>
+                <div class="light left"></div>
+                <div class="light right"></div>
+                <div class="signal left"></div>
+                <div class="signal right"></div>
+            </div>
+            <div id="overlay" class="">
+                <div class="overlay-card">
+                    <p id="overlay-message"></p>
+                    <p id="overlay-subtext"></p>
+                    <button type="button" id="start-button">Démarrer</button>
+                </div>
+            </div>
+        </div>
+        <div id="controls">
+            <button type="button" id="move-left">Gauche</button>
+            <button type="button" id="move-right">Droite</button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const road = document.getElementById("road");
+            const car = document.getElementById("car");
+            const overlay = document.getElementById("overlay");
+            const overlayMessage = document.getElementById("overlay-message");
+            const overlaySubtext = document.getElementById("overlay-subtext");
+            const startButton = document.getElementById("start-button");
+            const scoreValue = document.getElementById("score-value");
+            const bestValue = document.getElementById("best-value");
+            const moveLeft = document.getElementById("move-left");
+            const moveRight = document.getElementById("move-right");
+
+            let animationId = 0;
+            let lastFrame = performance.now();
+            let spawnTimer = 0;
+            let score = 0;
+            let bestScore = Number(window.localStorage.getItem("dobloBestScore") || 0);
+            let gameRunning = false;
+            let activeMove = 0;
+            let moveVelocity = 0;
+            const moveAcceleration = 1400;
+            const maxMoveSpeed = 360;
+            const carState = { x: 0 };
+            const obstacles = [];
+
+            function setCarPosition(x) {
+                const half = car.offsetWidth / 2;
+                const min = half + 8;
+                const max = road.clientWidth - half - 8;
+                carState.x = Math.min(Math.max(x, min), max);
+                car.style.left = carState.x + "px";
+            }
+
+            function resetCarPosition() {
+                setCarPosition(road.clientWidth / 2);
+                car.style.bottom = "32px";
+            }
+
+            function updateScore(value) {
+                score = value;
+                scoreValue.textContent = score.toFixed(1);
+            }
+
+            function createObstacle() {
+                const obstacle = document.createElement("div");
+                obstacle.className = "obstacle";
+                const padding = 16;
+                const roadWidth = road.clientWidth;
+                obstacle.style.top = "-160px";
+                road.appendChild(obstacle);
+                const obstacleWidth = obstacle.offsetWidth || 72;
+                const available = roadWidth - padding * 2 - obstacleWidth;
+                const posX = padding + Math.random() * Math.max(available, 0);
+                obstacle.style.left = posX + "px";
+                obstacles.push({ element: obstacle, y: -160 });
+            }
+
+            function resetGame() {
+                cancelAnimationFrame(animationId);
+                while (obstacles.length) {
+                    obstacles.pop().element.remove();
+                }
+                updateScore(0);
+                spawnTimer = 0;
+                moveVelocity = 0;
+                activeMove = 0;
+                lastFrame = performance.now();
+                resetCarPosition();
+            }
+
+            function startGame() {
+                resetGame();
+                overlay.classList.add("hidden");
+                overlayMessage.textContent = "";
+                overlaySubtext.textContent = "";
+                gameRunning = true;
+                animationId = requestAnimationFrame(loop);
+            }
+
+            function endGame() {
+                gameRunning = false;
+                overlayMessage.textContent = "Féliciations";
+                overlaySubtext.textContent = "Touchez, cliquez ou appuyez sur Entrée pour relancer.";
+                overlay.classList.remove("hidden");
+                if (score > bestScore) {
+                    bestScore = score;
+                    window.localStorage.setItem("dobloBestScore", bestScore.toFixed(1));
+                }
+                bestValue.textContent = bestScore.toFixed(1);
+            }
+
+            function loop(timestamp) {
+                const delta = (timestamp - lastFrame) / 1000;
+                lastFrame = timestamp;
+
+                if (!gameRunning) {
+                    return;
+                }
+
+                moveVelocity += activeMove * moveAcceleration * delta;
+                moveVelocity *= 0.86;
+                if (Math.abs(moveVelocity) < 14 && activeMove === 0) {
+                    moveVelocity = 0;
+                }
+                moveVelocity = Math.min(Math.max(moveVelocity, -maxMoveSpeed), maxMoveSpeed);
+                const nextX = carState.x + moveVelocity * delta;
+                setCarPosition(nextX);
+
+                const carRect = car.getBoundingClientRect();
+                const speed = 190 + score * 3.4;
+                spawnTimer += delta;
+                const spawnRate = Math.max(0.55, 1.75 - score * 0.018);
+                if (spawnTimer >= spawnRate) {
+                    spawnTimer = 0;
+                    createObstacle();
+                }
+
+                for (let i = obstacles.length - 1; i >= 0; i -= 1) {
+                    const entry = obstacles[i];
+                    entry.y += speed * delta;
+                    entry.element.style.top = entry.y + "px";
+
+                    if (entry.y > road.clientHeight + 180) {
+                        entry.element.remove();
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    const rect = entry.element.getBoundingClientRect();
+                    if (!(carRect.right < rect.left + 8 ||
+                        carRect.left > rect.right - 8 ||
+                        carRect.bottom < rect.top + 12 ||
+                        carRect.top > rect.bottom - 12)) {
+                        endGame();
+                        return;
+                    }
+                }
+
+                updateScore(score + delta * 10);
+                animationId = requestAnimationFrame(loop);
+            }
+
+            function handleKeyDown(event) {
+                if (!gameRunning && (event.code === "Enter" || event.code === "Space")) {
+                    startGame();
+                    return;
+                }
+
+                if (event.code === "ArrowLeft" || event.code === "KeyA") {
+                    activeMove = -1;
+                }
+
+                if (event.code === "ArrowRight" || event.code === "KeyD") {
+                    activeMove = 1;
+                }
+            }
+
+            function handleKeyUp(event) {
+                if ((event.code === "ArrowLeft" || event.code === "KeyA") && activeMove < 0) {
+                    activeMove = 0;
+                }
+                if ((event.code === "ArrowRight" || event.code === "KeyD") && activeMove > 0) {
+                    activeMove = 0;
+                }
+            }
+
+            function attachControl(button, direction) {
+                const start = (event) => {
+                    event.preventDefault();
+                    activeMove = direction;
+                };
+                const stop = (event) => {
+                    if (button.hasPointerCapture(event.pointerId)) {
+                        button.releasePointerCapture(event.pointerId);
+                    }
+                    if (activeMove === direction) {
+                        activeMove = 0;
+                    }
+                };
+                button.addEventListener("pointerdown", (event) => {
+                    button.setPointerCapture(event.pointerId);
+                    start(event);
+                });
+                button.addEventListener("pointerup", stop);
+                button.addEventListener("pointercancel", stop);
+                button.addEventListener("pointerleave", stop);
+            }
+
+            document.addEventListener("keydown", handleKeyDown);
+            document.addEventListener("keyup", handleKeyUp);
+
+            document.addEventListener("touchstart", (event) => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            }, { passive: true });
+
+            overlay.addEventListener("click", () => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            });
+
+            startButton.addEventListener("click", () => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            });
+
+            attachControl(moveLeft, -1);
+            attachControl(moveRight, 1);
+
+            window.addEventListener("resize", resetCarPosition);
+
+            overlayMessage.textContent = "Prêt ?";
+            overlaySubtext.textContent = "Glissez, utilisez les flèches ou touchez les boutons pour conduire.";
+            bestValue.textContent = bestScore.toFixed(1);
+            resetCarPosition();
+        })();
+    </script>
+</body>
+</html>
+
+
+
