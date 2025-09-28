@@ -59,9 +59,13 @@
       position: relative; border-radius: 20px; overflow: hidden;
       background: #0b1720;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+      width: 100%;
+      /* Assure une hauteur calculable pour le canvas */
+      aspect-ratio: 400 / 640;
+      min-height: 360px;
     }
 
-    canvas { width: 100%; height: auto; display: block; }
+    canvas { width: 100%; height: 100%; display: block; }
 
     .overlay {
       position: absolute; inset: 0;
@@ -156,13 +160,27 @@
 
       // Responsive pixel ratio
       function fitCanvas(){
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = Math.round(rect.width * DPR);
-        canvas.height = Math.round(rect.height * DPR);
+        // Calcul basé sur la taille RENDUE (CSS) du canvas
+        let rect = canvas.getBoundingClientRect();
+        // Si la hauteur est nulle (ex. styles pas encore appliqués), on se base sur le parent
+        if (rect.height < 2) {
+          const pr = canvas.parentNode.getBoundingClientRect();
+          if (pr.width > 0 && pr.height > 0) rect = pr;
+        }
+        const w = Math.max(1, Math.round(rect.width * DPR));
+        const h = Math.max(1, Math.round(rect.height * DPR));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        // Espace de dessin en unités CSS pixels
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       }
       new ResizeObserver(fitCanvas).observe(canvas);
-      fitCanvas();
+      window.addEventListener('resize', fitCanvas);
+      window.addEventListener('load', fitCanvas);
+      // Fallback initial (au cas où la taille serait 0 au tout premier calcul)
+      setTimeout(fitCanvas, 0);
 
       // Game settings (rendus plus faciles)
       const LANES = 3;
