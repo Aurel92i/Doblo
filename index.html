@@ -1,131 +1,428 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Choisissez un jeu</title>
-    <style>
-        :root {
-            --bg-start: #0c1a24;
-            --bg-end: #1f3a52;
-            --card-bg: rgba(13, 24, 33, 0.72);
-            --button-doblo: linear-gradient(135deg, #ff4858 0%, #d72638 100%);
-            --button-gazier: linear-gradient(135deg, #3ac7ff 0%, #0070c9 100%);
-            --button-text: #fdfdfd;
-            font-family: "Segoe UI", Tahoma, sans-serif;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doblo Crash – version facile</title>
+  <style>
+    :root {
+      /* Reprise de vos variables & style */
+      --bg-start: #0c1a24;
+      --bg-end: #1f3a52;
+      --card-bg: rgba(13, 24, 33, 0.72);
+      --button-doblo: linear-gradient(135deg, #ff4858 0%, #d72638 100%);
+      --button-gazier: linear-gradient(135deg, #3ac7ff 0%, #0070c9 100%);
+      --button-text: #fdfdfd;
+      --text-main: #f7f9fb;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
 
-        * {
-            box-sizing: border-box;
-        }
+    * { box-sizing: border-box; }
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: radial-gradient(circle at top, var(--bg-start), var(--bg-end));
-            color: #f7f9fb;
-        }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, var(--bg-start), var(--bg-end));
+      color: var(--text-main);
+    }
 
-        main {
-            width: min(92vw, 520px);
-            padding: clamp(24px, 6vw, 48px);
-            border-radius: 28px;
-            background: var(--card-bg);
-            backdrop-filter: blur(6px);
-            box-shadow: 0 28px 48px rgba(0, 0, 0, 0.42);
-            display: flex;
-            flex-direction: column;
-            gap: clamp(26px, 5vw, 38px);
-            text-align: center;
-        }
+    .card {
+      width: min(94vw, 540px);
+      padding: clamp(18px, 4.5vw, 28px);
+      border-radius: 28px;
+      background: var(--card-bg);
+      backdrop-filter: blur(6px);
+      box-shadow: 0 28px 48px rgba(0, 0, 0, 0.42);
+      display: grid;
+      gap: clamp(14px, 3.5vw, 20px);
+    }
 
-        h1 {
-            margin: 0;
-            font-size: clamp(26px, 6vw, 34px);
-            letter-spacing: 1px;
-        }
+    header {
+      display: grid; gap: 4px; text-align: center;
+    }
+    header h1 { margin: 0; font-size: clamp(22px, 5vw, 30px); letter-spacing: 0.5px; }
+    header p { margin: 0; opacity: .78; font-size: clamp(14px, 3.6vw, 16px); }
 
-        p {
-            margin: 0;
-            font-size: clamp(16px, 4vw, 18px);
-            color: rgba(255, 255, 255, 0.78);
-            line-height: 1.5;
-        }
+    .hud {
+      display: flex; align-items: center; justify-content: space-between;
+      font-weight: 700; letter-spacing: .5px; font-size: clamp(14px, 3.8vw, 16px);
+    }
 
-        nav {
-            display: grid;
-            gap: clamp(16px, 4vw, 24px);
-        }
+    .hud .pill {
+      padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
 
-        a.game-button {
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            padding: clamp(18px, 4.5vw, 22px);
-            border-radius: 20px;
-            color: var(--button-text);
-            font-size: clamp(18px, 4.8vw, 22px);
-            font-weight: 700;
-            letter-spacing: 1px;
-            text-decoration: none;
-            box-shadow: 0 20px 36px rgba(0, 0, 0, 0.35);
-            transition: transform 140ms ease, box-shadow 140ms ease;
-        }
+    .canvas-wrap {
+      position: relative; border-radius: 20px; overflow: hidden;
+      background: #0b1720;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+    }
 
-        a.game-button span {
-            text-transform: uppercase;
-        }
+    canvas { width: 100%; height: auto; display: block; }
 
-        a.game-button:hover,
-        a.game-button:focus {
-            transform: translateY(-2px) scale(1.01);
-            box-shadow: 0 24px 40px rgba(0, 0, 0, 0.42);
-        }
+    .overlay {
+      position: absolute; inset: 0;
+      display: grid; place-items: center; text-align: center;
+      padding: 20px; background: rgba(11,23,32,0.6);
+      opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+    }
 
-        a.game-button:active {
-            transform: translateY(1px) scale(0.99);
-        }
+    .overlay.show { opacity: 1; pointer-events: auto; }
 
-        a#doblo-link {
-            background: var(--button-doblo);
-        }
+    .overlay .box {
+      background: rgba(13, 24, 33, 0.85);
+      border-radius: 20px; padding: clamp(18px, 4vw, 28px);
+      box-shadow: 0 18px 36px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.05);
+      max-width: 90%;
+    }
 
-        a#gazier-link {
-            background: var(--button-gazier);
-        }
+    .overlay h2 {
+      margin: 0 0 8px; font-size: clamp(22px, 6vw, 36px);
+      letter-spacing: 1px;
+    }
+    .overlay p { margin: 0 0 16px; opacity: .85; }
 
-        footer {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.55);
-        }
+    .row {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    }
 
-        @media (min-width: 640px) {
-            nav {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-    </style>
+    button.btn {
+      appearance: none; border: 0; cursor: pointer; color: var(--button-text);
+      background: var(--button-doblo); font-weight: 800; letter-spacing: .6px;
+      padding: 12px 16px; border-radius: 14px; box-shadow: 0 12px 26px rgba(0,0,0,.35);
+      transition: transform 140ms ease, box-shadow 140ms ease; font-size: 15px;
+    }
+    button.btn:hover { transform: translateY(-1px); box-shadow: 0 16px 32px rgba(0,0,0,.4); }
+    button.btn:active { transform: translateY(1px); }
+
+    .controls {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;
+    }
+    .controls .cbtn {
+      border: 0; border-radius: 14px; padding: 12px 10px; font-weight: 800;
+      background: rgba(255,255,255,.08); color: var(--text-main); letter-spacing: .6px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+      touch-action: manipulation;
+    }
+
+    footer { text-align: center; opacity: .6; font-size: 13px; }
+  </style>
 </head>
 <body>
-    <main>
-        <header>
-            <h1>Choisissez votre jeu</h1>
-            <p>Le renfort arrive tranquillement..</p>
-        </header>
-        <nav>
-            <a id="doblo-link" class="game-button" href="https://aurel92i.github.io/Crash-Doblo/" target="_blank" rel="noopener">
-                <span>Crash Doblo</span>
-            </a>
-            <a id="gazier-link" class="game-button" href="https://aurel92i.github.io/dino/" target="_blank" rel="noopener">
-                <span>Gazier Runner</span>
-            </a>
-        </nav>
-        <footer>
-            Touchez un bouton pour être redirigé vers le jeu sélectionné.
-        </footer>
-    </main>
+  <main class="card">
+    <header>
+      <h1>Doblo Crash</h1>
+      <p>Évitez les véhicules. Plus simple, plus fluide… et « Félicitations » à chaque crash !</p>
+    </header>
+
+    <div class="hud">
+      <div class="pill">Score : <span id="score">0</span></div>
+      <div class="pill">Meilleur : <span id="best">0</span></div>
+      <div class="pill"><button id="pauseBtn" class="cbtn" style="padding:6px 10px">⏸︎ Pause</button></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="400" height="640" aria-label="aire de jeu"></canvas>
+
+      <div id="overlay" class="overlay" aria-live="polite">
+        <div class="box">
+          <h2>Félicitations ! 🎉</h2>
+          <p>Tu as donné tout ce que tu pouvais. Repars plus fort !</p>
+          <div class="row">
+            <button class="btn" id="retryBtn">Rejouer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" aria-hidden="false">
+      <button class="cbtn" id="leftBtn">← Gauche</button>
+      <button class="cbtn" id="rightBtn">Droite →</button>
+    </div>
+
+    <footer>
+      Astuce : ← → pour changer de voie, ↑ pour accélérer, ↓ pour freiner. Sur mobile : utilisez les boutons.
+    </footer>
+  </main>
+
+  <script>
+    (function(){
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+      // Responsive pixel ratio
+      function fitCanvas(){
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.round(rect.width * DPR);
+        canvas.height = Math.round(rect.height * DPR);
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      new ResizeObserver(fitCanvas).observe(canvas);
+      fitCanvas();
+
+      // Game settings (rendus plus faciles)
+      const LANES = 3;
+      let laneW, leftEdge, roadW, roadTop = 0, roadBottom;
+
+      const settings = {
+        playerSpeed: 5,              // vitesse latérale
+        baseEnemySpeed: 2.2,         // ↓ plus lent
+        maxEnemyOnScreen: 2,         // ↓ nombre limité de véhicules simultanés
+        spawnEveryMs: 1500,          // ↓ rythme d'apparition plus rare
+        accelFactor: 0.00008,        // progression très douce
+        enemySpeedCap: 5.2,
+        laneChangeCooldownMs: 120,
+      };
+
+      const state = {
+        running: true,
+        gameOver: false,
+        time: 0,
+        lastSpawn: 0,
+        enemySpeed: settings.baseEnemySpeed,
+        lane: 1,
+        score: 0,
+        best: parseInt(localStorage.getItem('doblo-crash-best') || '0', 10),
+      };
+
+      const ui = {
+        score: document.getElementById('score'),
+        best: document.getElementById('best'),
+        overlay: document.getElementById('overlay'),
+        retry: document.getElementById('retryBtn'),
+        pause: document.getElementById('pauseBtn'),
+        left: document.getElementById('leftBtn'),
+        right: document.getElementById('rightBtn'),
+      };
+      ui.best.textContent = state.best;
+
+      const player = { w: 46, h: 80, x: 0, y: 0, lane: 1, targetLane: 1, vy: 0, speedY: 0 };
+      const enemies = [];
+
+      function layout(){
+        const W = canvas.width / DPR, H = canvas.height / DPR;
+        roadW = Math.min(340, Math.max(260, W * 0.78));
+        laneW = roadW / LANES;
+        leftEdge = (W - roadW) / 2;
+        roadBottom = H;
+
+        player.y = H - 110;
+        player.w = laneW * 0.68;
+        player.h = Math.max(70, laneW * 1.1);
+        movePlayerToLane(state.lane, true);
+      }
+
+      function movePlayerToLane(lane, instant){
+        state.lane = Math.max(0, Math.min(LANES-1, lane));
+        const xCenter = leftEdge + laneW * (state.lane + 0.5);
+        player.x = xCenter - player.w/2;
+        if(instant) return;
+      }
+
+      // Input
+      let canLaneChange = true;
+      function laneCooldown(){
+        canLaneChange = false;
+        setTimeout(()=>canLaneChange = true, settings.laneChangeCooldownMs);
+      }
+
+      window.addEventListener('keydown', (e)=>{
+        if(state.gameOver){ if(e.key === ' '){ restart(); } return; }
+        if(e.key === 'ArrowLeft' && canLaneChange){ movePlayerToLane(state.lane-1); laneCooldown(); }
+        if(e.key === 'ArrowRight' && canLaneChange){ movePlayerToLane(state.lane+1); laneCooldown(); }
+        if(e.key === 'ArrowUp'){ state.enemySpeed *= 1.005; }
+        if(e.key === 'ArrowDown'){ state.enemySpeed *= 0.99; }
+        if(e.key.toLowerCase() === 'p'){ togglePause(); }
+      });
+
+      ui.left.addEventListener('click', ()=>{ if(!state.gameOver && canLaneChange){ movePlayerToLane(state.lane-1); laneCooldown(); }});
+      ui.right.addEventListener('click', ()=>{ if(!state.gameOver && canLaneChange){ movePlayerToLane(state.lane+1); laneCooldown(); }});
+
+      ui.retry.addEventListener('click', restart);
+      ui.pause.addEventListener('click', togglePause);
+
+      window.addEventListener('blur', ()=>{ if(state.running){ togglePause(true); } });
+
+      function togglePause(forceOn){
+        if(forceOn === true){ state.running = false; ui.pause.textContent = '▶︎ Reprendre'; return; }
+        state.running = !state.running;
+        ui.pause.textContent = state.running ? '⏸︎ Pause' : '▶︎ Reprendre';
+        if(state.running) lastFrame = performance.now();
+      }
+
+      function restart(){
+        state.gameOver = false;
+        ui.overlay.classList.remove('show');
+        enemies.length = 0;
+        state.time = 0;
+        state.lastSpawn = 0;
+        state.enemySpeed = settings.baseEnemySpeed;
+        state.score = 0;
+        state.lane = 1;
+        movePlayerToLane(1, true);
+        state.running = true;
+        lastFrame = performance.now();
+      }
+
+      // Spawning ennemis (plus facile)
+      function trySpawn(dt){
+        if(enemies.length >= settings.maxEnemyOnScreen) return; // limite stricte
+        state.lastSpawn += dt;
+        if(state.lastSpawn >= settings.spawnEveryMs){
+          state.lastSpawn = 0;
+          const lane = pickFreeLaneAtSpawn();
+          const e = createEnemy(lane);
+          enemies.push(e);
+        }
+      }
+
+      function pickFreeLaneAtSpawn(){
+        const occupied = new Set();
+        for(const e of enemies){ if(e.y < 120){ occupied.add(e.lane); }
+        }
+        const options = [0,1,2].filter(l=>!occupied.has(l));
+        return options.length ? options[Math.floor(Math.random()*options.length)] : Math.floor(Math.random()*LANES);
+      }
+
+      function createEnemy(lane){
+        const W = canvas.width / DPR, H = canvas.height / DPR;
+        const w = laneW * 0.66;
+        const h = Math.max(62, laneW * 1.0);
+        const xCenter = leftEdge + laneW * (lane + 0.5);
+        return { lane, x: xCenter - w/2, y: -h - 20, w, h, speed: state.enemySpeed * (0.92 + Math.random()*0.2) };
+      }
+
+      function update(dt){
+        // Progression douce
+        state.enemySpeed = Math.min(settings.enemySpeedCap, state.enemySpeed + settings.accelFactor * dt);
+        state.score += dt * 0.01; // 1 point / 100ms
+        ui.score.textContent = Math.floor(state.score).toString();
+
+        // MàJ des ennemis
+        for(let i=enemies.length-1;i>=0;i--){
+          const e = enemies[i];
+          e.y += e.speed * (dt/16.6667);
+          if(e.y > roadBottom + 40){ enemies.splice(i,1); }
+        }
+
+        // Collisions
+        for(const e of enemies){
+          if(rectsOverlap(player, e)){ return gameOver(); }
+        }
+      }
+
+      function rectsOverlap(a,b){
+        return !(a.x + a.w < b.x + 8 || a.x > b.x + b.w - 8 || a.y + a.h < b.y + 8 || a.y > b.y + b.h - 8);
+      }
+
+      function draw(){
+        const W = canvas.width / DPR, H = canvas.height / DPR;
+        ctx.clearRect(0,0,W,H);
+
+        // route
+        drawRoad(ctx, W, H);
+
+        // ennemis
+        for(const e of enemies){ drawCar(ctx, e.x, e.y, e.w, e.h, '#cbd5e1'); }
+
+        // joueur
+        drawCar(ctx, player.x, player.y, player.w, player.h, '#ff4858');
+      }
+
+      function drawRoad(ctx, W, H){
+        // fond route
+        ctx.fillStyle = '#0f222f';
+        ctx.fillRect(leftEdge, roadTop, roadW, H);
+
+        // bords
+        ctx.fillStyle = 'rgba(255,255,255,.2)';
+        ctx.fillRect(leftEdge, 0, 4, H);
+        ctx.fillRect(leftEdge + roadW - 4, 0, 4, H);
+
+        // pointillés de voies
+        ctx.strokeStyle = 'rgba(255,255,255,.22)';
+        ctx.lineWidth = 4; ctx.setLineDash([18, 18]);
+        for(let i=1;i<LANES;i++){
+          const x = leftEdge + laneW * i;
+          ctx.beginPath();
+          ctx.moveTo(x, 0); ctx.lineTo(x, H);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+
+      function drawCar(ctx, x,y,w,h, color){
+        // corps
+        const r = 10;
+        ctx.fillStyle = color;
+        roundRect(ctx, x, y, w, h, r, true, false);
+        // vitres
+        ctx.fillStyle = 'rgba(0,0,0,.22)';
+        roundRect(ctx, x + w*0.18, y + h*0.12, w*0.64, h*0.25, 8, true, false);
+        // ombre
+        ctx.fillStyle = 'rgba(0,0,0,.22)';
+        ctx.fillRect(x+4, y+h-6, w-8, 4);
+      }
+
+      function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+        if (typeof radius === 'number') {
+          radius = {tl: radius, tr: radius, br: radius, bl: radius};
+        } else {
+          radius = {...{tl:0, tr:0, br:0, bl:0}, ...radius};
+        }
+        ctx.beginPath();
+        ctx.moveTo(x + radius.tl, y);
+        ctx.lineTo(x + width - radius.tr, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+        ctx.lineTo(x + width, y + height - radius.br);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+        ctx.lineTo(x + radius.bl, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+        ctx.lineTo(x, y + radius.tl);
+        ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+        ctx.closePath();
+        if (fill) ctx.fill();
+        if (stroke) ctx.stroke();
+      }
+
+      function gameOver(){
+        state.gameOver = true;
+        state.running = false;
+        ui.overlay.classList.add('show'); // « Félicitations ! » visible
+        const intScore = Math.floor(state.score);
+        if(intScore > state.best){
+          state.best = intScore;
+          localStorage.setItem('doblo-crash-best', String(intScore));
+          ui.best.textContent = intScore;
+        }
+      }
+
+      // Boucle
+      let lastFrame = performance.now();
+      function frame(now){
+        const dt = Math.min(48, now - lastFrame); // clamp
+        lastFrame = now;
+
+        layout();
+
+        if(state.running && !state.gameOver){
+          state.time += dt;
+          trySpawn(dt);
+          update(dt);
+        }
+        draw();
+
+        requestAnimationFrame(frame);
+      }
+
+      // init
+      requestAnimationFrame(frame);
+
+    })();
+  </script>
 </body>
 </html>
