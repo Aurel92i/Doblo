@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Doblo Rush</title>
+    <style>
+        :root {
+            --road-surface: #3a3a3a;
+            --road-border: #111216;
+            --lane-mark: rgba(255, 255, 255, 0.72);
+            --doblo-white: #f7f7f7;
+            --doblo-gray: #cdd2d7;
+            --doblo-darker: #9ba2aa;
+            --doblo-red: #d72638;
+            --doblo-blue: #2280c3;
+            --hud-bg: rgba(15, 15, 20, 0.65);
+            --hud-text: #f1f1f1;
+            --pedal-accel: linear-gradient(130deg, #63ffa7 0%, #1a9847 100%);
+            --pedal-brake: linear-gradient(130deg, #ff7760 0%, #c32020 100%);
+            font-family: "Segoe UI", Tahoma, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at top, #21242a 0%, #11151c 58%, #07090d 100%);
+            color: #202225;
+        }
+
+        #game-wrapper {
+            width: min(94vw, 440px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #hud {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-radius: 16px;
+            background: var(--hud-bg);
+            color: var(--hud-text);
+            font-size: 15px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+        }
+
+        #hud span {
+            font-weight: 600;
+        }
+
+        #road {
+            position: relative;
+            width: 100%;
+            height: min(70vh, 620px);
+            min-height: 460px;
+            background: linear-gradient(180deg, #444 0%, #2e2e2e 40%, #242424 100%);
+            border-radius: 20px;
+            border: 8px solid var(--road-border);
+            overflow: hidden;
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        #road::before,
+        #road::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            width: 6px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                var(--lane-mark) 0 22px,
+                transparent 22px 48px
+            );
+            opacity: 0.7;
+            filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.2));
+        }
+
+        #road::before {
+            left: calc(33.33% - 3px);
+        }
+
+        #road::after {
+            right: calc(33.33% - 3px);
+        }
+
+        #car {
+            position: absolute;
+            bottom: 28px;
+            left: 50%;
+            width: 62px;
+            height: 118px;
+            transform: translateX(-50%);
+        }
+
+        #car .car-shadow {
+            position: absolute;
+            left: 50%;
+            bottom: -18px;
+            width: 96px;
+            height: 42px;
+            transform: translateX(-50%);
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.0) 70%);
+            filter: blur(4px);
+            pointer-events: none;
+        }
+
+        #car .car-body {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(150deg, var(--doblo-white) 0%, #edf1f4 35%, var(--doblo-darker) 100%);
+            border-radius: 20px 20px 16px 16px;
+            border: 3px solid var(--doblo-gray);
+            box-shadow:
+                0 18px 28px rgba(0, 0, 0, 0.36),
+                inset 0 -5px 10px rgba(0, 0, 0, 0.22),
+                inset 0 4px 8px rgba(255, 255, 255, 0.45);
+            transform-origin: center bottom;
+            transform: perspective(540px) rotateX(16deg);
+            overflow: hidden;
+        }
+
+        #car .car-body::before {
+            content: "";
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            height: 28px;
+            border-radius: 16px;
+            background: repeating-linear-gradient(135deg, var(--doblo-red) 0 12px, #f8f8f8 12px 24px);
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #car .car-body::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.28) 100%);
+            mix-blend-mode: multiply;
+            pointer-events: none;
+        }
+
+        #car .roof {
+            position: absolute;
+            top: 40px;
+            left: 14px;
+            right: 14px;
+            height: 46px;
+            border-radius: 14px;
+            background: linear-gradient(155deg, #fbfbfb 0%, #e6ebef 45%, #cfd5db 100%);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.18);
+        }
+
+        #car .window {
+            position: absolute;
+            top: 58px;
+            left: 10px;
+            right: 10px;
+            height: 34px;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(56, 115, 160, 0.85) 0%, rgba(13, 31, 52, 0.92) 80%);
+            box-shadow: inset 0 6px 10px rgba(255, 255, 255, 0.2);
+        }
+
+        #car .window::before {
+            content: "";
+            position: absolute;
+            inset: 6px 14px;
+            border-radius: 10px;
+            background: linear-gradient(156deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0) 60%);
+        }
+
+        #car .badge {
+            position: absolute;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            letter-spacing: 2px;
+            font-weight: 700;
+            color: var(--doblo-red);
+            text-transform: uppercase;
+            text-shadow: 0 0 6px rgba(215, 38, 56, 0.45);
+        }
+
+        #car .beacon {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 22px;
+            height: 12px;
+            background: radial-gradient(circle at center, var(--doblo-blue) 0%, #0d4f8f 100%);
+            border-radius: 10px 10px 6px 6px;
+            box-shadow: 0 0 10px rgba(34, 128, 195, 0.8);
+        }
+
+        #car .light {
+            position: absolute;
+            top: 6px;
+            width: 14px;
+            height: 22px;
+            border-radius: 12px;
+            background: linear-gradient(150deg, #fff9a6 0%, #ffd75b 60%, #fbb531 100%);
+            box-shadow: 0 0 6px rgba(255, 210, 90, 0.68);
+        }
+
+        #car .light.left {
+            left: 6px;
+            transform: rotate(6deg);
+        }
+
+        #car .light.right {
+            right: 6px;
+            transform: rotate(-6deg);
+        }
+
+        #car .signal {
+            position: absolute;
+            top: 74px;
+            width: 20px;
+            height: 30px;
+            border-radius: 8px;
+            background: linear-gradient(155deg, #c6d6e3 0%, #8db3d3 55%, #4c7ca9 100%);
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.18);
+        }
+
+        #car .signal.left {
+            left: 9px;
+        }
+
+        #car .signal.right {
+            right: 9px;
+        }
+
+        .obstacle {
+            position: absolute;
+            top: -150px;
+            width: 58px;
+            height: 128px;
+            background: linear-gradient(160deg, #3a3a3a 0%, #222 48%, #0f0f0f 100%);
+            border-radius: 18px;
+            border: 3px solid #151515;
+            box-shadow: 0 20px 32px rgba(0, 0, 0, 0.48);
+            transform-origin: center bottom;
+            transform: perspective(520px) rotateX(18deg);
+        }
+
+        .obstacle::before {
+            content: "";
+            position: absolute;
+            top: 14px;
+            left: 10px;
+            right: 10px;
+            height: 20px;
+            border-radius: 12px;
+            background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0 12px, rgba(255, 0, 0, 0.85) 12px 24px);
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .obstacle::after {
+            content: "STOP";
+            position: absolute;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.68);
+            font-size: 11px;
+            letter-spacing: 2px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            background: rgba(7, 7, 12, 0.65);
+            color: #f7f7f7;
+            text-align: center;
+            transition: opacity 180ms ease;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .overlay-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 26px 28px;
+            border-radius: 18px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            max-width: 82%;
+        }
+
+        #overlay-message {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        #overlay-subtext {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.78);
+        }
+
+        #start-button {
+            padding: 10px 18px;
+            border-radius: 14px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #11151c;
+            background: linear-gradient(130deg, #ffef85 0%, #ffbf3c 100%);
+            cursor: pointer;
+            transition: transform 120ms ease;
+        }
+
+        #start-button:active {
+            transform: scale(0.96);
+        }
+
+        #controls {
+            width: 100%;
+            display: flex;
+            gap: clamp(12px, 4vw, 18px);
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+
+        #steering-module {
+            flex: 1 1 52%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #palette-track {
+            position: relative;
+            width: 100%;
+            height: 92px;
+            border-radius: 52px;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 10px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        #palette-track::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 14px;
+            right: 14px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-50%);
+        }
+
+        #palette-handle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #ffffff 0%, #d1d6dc 58%, #aeb5bd 100%);
+            border: 2px solid rgba(255, 255, 255, 0.65);
+            box-shadow: 0 14px 26px rgba(0, 0, 0, 0.35);
+            transform: translate(-50%, -50%);
+            transition: left 220ms ease;
+        }
+
+        #palette-track.active #palette-handle {
+            transition: none;
+        }
+
+        .control-label {
+            font-size: 14px;
+            letter-spacing: 0.6px;
+            color: rgba(255, 255, 255, 0.68);
+            text-transform: uppercase;
+        }
+
+        #pedals {
+            flex: 1 1 42%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #pedals button {
+            flex: 1 1 0;
+            min-height: 64px;
+            border-radius: 18px;
+            border: none;
+            color: #f6f8fb;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 16px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        #accelerate-button {
+            background: var(--pedal-accel);
+        }
+
+        #brake-button {
+            background: var(--pedal-brake);
+        }
+
+        #pedals button.pressed {
+            transform: translateY(2px) scale(0.99);
+            box-shadow: 0 12px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .crash-banner {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.75);
+            padding: 12px 24px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #c00f2b;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            box-shadow: 0 18px 32px rgba(0, 0, 0, 0.4);
+            animation: crash-pop 640ms ease-out forwards;
+        }
+
+        @keyframes crash-pop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.55);
+            }
+            45% {
+                opacity: 1;
+                transform: translate(-50%, -52%) scale(1.05);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -46%) scale(0.9);
+            }
+        }
+
+        @media (max-width: 540px) {
+            #road {
+                min-height: 420px;
+            }
+
+            #controls {
+                flex-direction: column;
+            }
+
+            #pedals {
+                flex-direction: row;
+            }
+
+            #pedals button {
+                min-height: 58px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            #palette-handle {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="hud">
+            <div>Score: <span id="score-value">0.0</span></div>
+            <div>Record: <span id="best-value">0.0</span></div>
+        </div>
+        <div id="road">
+            <div id="car">
+                <div class="car-shadow"></div>
+                <div class="car-body">
+                    <div class="roof"></div>
+                    <div class="window"></div>
+                    <div class="beacon"></div>
+                    <div class="light left"></div>
+                    <div class="light right"></div>
+                    <div class="signal left"></div>
+                    <div class="signal right"></div>
+                    <div class="badge">DOBLO</div>
+                </div>
+            </div>
+            <div id="overlay" class="">
+                <div class="overlay-card">
+                    <p id="overlay-message"></p>
+                    <p id="overlay-subtext"></p>
+                    <button type="button" id="start-button">Démarrer</button>
+                </div>
+            </div>
+        </div>
+        <div id="controls">
+            <div id="steering-module">
+                <div id="palette-track" class="released">
+                    <div id="palette-handle"></div>
+                </div>
+                <span class="control-label">Palette de direction</span>
+            </div>
+            <div id="pedals">
+                <button type="button" id="brake-button">Freiner</button>
+                <button type="button" id="accelerate-button">Accélérer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const road = document.getElementById("road");
+            const car = document.getElementById("car");
+            const overlay = document.getElementById("overlay");
+            const overlayMessage = document.getElementById("overlay-message");
+            const overlaySubtext = document.getElementById("overlay-subtext");
+            const startButton = document.getElementById("start-button");
+            const scoreValue = document.getElementById("score-value");
+            const bestValue = document.getElementById("best-value");
+            const paletteTrack = document.getElementById("palette-track");
+            const paletteHandle = document.getElementById("palette-handle");
+            const accelerateButton = document.getElementById("accelerate-button");
+            const brakeButton = document.getElementById("brake-button");
+
+            let animationId = 0;
+            let lastFrame = performance.now();
+            let spawnTimer = 0;
+            let score = 0;
+            let bestScore = Number(window.localStorage.getItem("dobloBestScore") || 0);
+            let gameRunning = false;
+            let moveVelocity = 0;
+            const moveAcceleration = 1400;
+            const maxMoveSpeed = 360;
+            const carState = { x: 0 };
+            const obstacles = [];
+
+            let pointerSteerActive = false;
+            let pointerSteer = 0;
+            let keyLeftActive = false;
+            let keyRightActive = false;
+            let keySteer = 0;
+
+            let pointerThrottle = 0;
+            let keyThrottle = 0;
+            let keyThrottleUp = false;
+            let keyThrottleDown = false;
+
+            let currentSpeed = 200;
+
+            function setCarPosition(x) {
+                const half = car.offsetWidth / 2;
+                const min = half + 8;
+                const max = road.clientWidth - half - 8;
+                carState.x = Math.min(Math.max(x, min), max);
+                car.style.left = carState.x + "px";
+            }
+
+            function resetCarPosition() {
+                setCarPosition(road.clientWidth / 2);
+                car.style.bottom = "28px";
+            }
+
+            function updateScore(value) {
+                score = value;
+                scoreValue.textContent = score.toFixed(1);
+            }
+
+            function updateHandlePosition(steer) {
+                const ratio = (steer + 1) / 2;
+                paletteHandle.style.left = (ratio * 100).toFixed(2) + "%";
+            }
+
+            function createObstacle() {
+                const obstacle = document.createElement("div");
+                obstacle.className = "obstacle";
+                const padding = 18;
+                const roadWidth = road.clientWidth;
+                obstacle.style.top = "-150px";
+                road.appendChild(obstacle);
+                const obstacleWidth = obstacle.offsetWidth || 58;
+                const available = roadWidth - padding * 2 - obstacleWidth;
+                const posX = padding + Math.random() * Math.max(available, 0);
+                obstacle.style.left = posX + "px";
+                obstacles.push({ element: obstacle, y: -150 });
+            }
+
+            function clearCrashBanners() {
+                road.querySelectorAll('.crash-banner').forEach((banner) => banner.remove());
+            }
+
+            function spawnCrashBanner() {
+                const banner = document.createElement('div');
+                banner.className = 'crash-banner';
+                banner.textContent = 'Félicitations';
+                const carTop = car.offsetTop;
+                banner.style.top = (carTop + car.offsetHeight / 2) + 'px';
+                road.appendChild(banner);
+                setTimeout(() => banner.remove(), 900);
+            }
+
+            function resetGame() {
+                cancelAnimationFrame(animationId);
+                while (obstacles.length) {
+                    obstacles.pop().element.remove();
+                }
+                clearCrashBanners();
+                updateScore(0);
+                spawnTimer = 0;
+                moveVelocity = 0;
+                pointerSteerActive = false;
+                pointerSteer = 0;
+                keyLeftActive = false;
+                keyRightActive = false;
+                keySteer = 0;
+                pointerThrottle = 0;
+                keyThrottle = 0;
+                keyThrottleUp = false;
+                keyThrottleDown = false;
+                currentSpeed = 200;
+                accelerateButton.classList.remove('pressed');
+                brakeButton.classList.remove('pressed');
+                paletteHandle.style.transition = 'left 220ms ease';
+                updateHandlePosition(0);
+                lastFrame = performance.now();
+                resetCarPosition();
+            }
+
+            function startGame() {
+                resetGame();
+                overlay.classList.add("hidden");
+                overlayMessage.textContent = "";
+                overlaySubtext.textContent = "";
+                gameRunning = true;
+                animationId = requestAnimationFrame(loop);
+            }
+
+            function endGame() {
+                gameRunning = false;
+                spawnCrashBanner();
+                overlayMessage.textContent = "Félicitations";
+                overlaySubtext.textContent = "Touchez, cliquez ou appuyez sur Entrée pour relancer.";
+                overlay.classList.remove("hidden");
+                if (score > bestScore) {
+                    bestScore = score;
+                    window.localStorage.setItem("dobloBestScore", bestScore.toFixed(1));
+                }
+                bestValue.textContent = bestScore.toFixed(1);
+            }
+
+            function loop(timestamp) {
+                const delta = Math.min((timestamp - lastFrame) / 1000, 0.035);
+                lastFrame = timestamp;
+
+                if (!gameRunning) {
+                    return;
+                }
+
+                const steeringInput = pointerSteerActive ? pointerSteer : keySteer;
+                moveVelocity += steeringInput * moveAcceleration * delta;
+                moveVelocity *= 0.86;
+                if (Math.abs(moveVelocity) < 14 && Math.abs(steeringInput) < 0.1) {
+                    moveVelocity = 0;
+                }
+                moveVelocity = Math.min(Math.max(moveVelocity, -maxMoveSpeed), maxMoveSpeed);
+                const nextX = carState.x + moveVelocity * delta;
+                setCarPosition(nextX);
+
+                const baseSpeed = 180 + Math.min(150, score * 2.4);
+                const throttleInput = pointerThrottle !== 0 ? pointerThrottle : keyThrottle;
+                const targetSpeed = Math.min(380, Math.max(140, baseSpeed + throttleInput * 120));
+                currentSpeed += (targetSpeed - currentSpeed) * Math.min(1, delta * 4.2);
+                const effectiveSpeed = currentSpeed;
+
+                const carRect = car.getBoundingClientRect();
+                spawnTimer += delta;
+                const spawnRate = Math.max(0.42, 1.6 - score * 0.016 - (effectiveSpeed - 180) / 420);
+                if (spawnTimer >= spawnRate) {
+                    spawnTimer = 0;
+                    createObstacle();
+                }
+
+                for (let i = obstacles.length - 1; i >= 0; i -= 1) {
+                    const entry = obstacles[i];
+                    entry.y += effectiveSpeed * delta;
+                    entry.element.style.top = entry.y + "px";
+
+                    if (entry.y > road.clientHeight + 160) {
+                        entry.element.remove();
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    const rect = entry.element.getBoundingClientRect();
+                    if (!(carRect.right < rect.left + 8 ||
+                        carRect.left > rect.right - 8 ||
+                        carRect.bottom < rect.top + 12 ||
+                        carRect.top > rect.bottom - 12)) {
+                        endGame();
+                        return;
+                    }
+                }
+
+                updateScore(score + delta * (effectiveSpeed / 18));
+                animationId = requestAnimationFrame(loop);
+            }
+
+            function updateKeySteer() {
+                if (keyLeftActive && !keyRightActive) {
+                    keySteer = -1;
+                    return;
+                }
+                if (keyRightActive && !keyLeftActive) {
+                    keySteer = 1;
+                    return;
+                }
+                keySteer = 0;
+            }
+
+            function updateKeyThrottle() {
+                if (keyThrottleUp && !keyThrottleDown) {
+                    keyThrottle = 1;
+                    return;
+                }
+                if (keyThrottleDown && !keyThrottleUp) {
+                    keyThrottle = -1;
+                    return;
+                }
+                keyThrottle = 0;
+            }
+
+            function handleKeyDown(event) {
+                if (!gameRunning && (event.code === "Enter" || event.code === "Space")) {
+                    startGame();
+                    return;
+                }
+
+                if (event.code === "ArrowLeft" || event.code === "KeyA") {
+                    keyLeftActive = true;
+                    updateKeySteer();
+                }
+
+                if (event.code === "ArrowRight" || event.code === "KeyD") {
+                    keyRightActive = true;
+                    updateKeySteer();
+                }
+
+                if (event.code === "ArrowUp" || event.code === "KeyW") {
+                    keyThrottleUp = true;
+                    updateKeyThrottle();
+                }
+
+                if (event.code === "ArrowDown" || event.code === "KeyS") {
+                    keyThrottleDown = true;
+                    updateKeyThrottle();
+                }
+            }
+
+            function handleKeyUp(event) {
+                if ((event.code === "ArrowLeft" || event.code === "KeyA")) {
+                    keyLeftActive = false;
+                    updateKeySteer();
+                }
+                if ((event.code === "ArrowRight" || event.code === "KeyD")) {
+                    keyRightActive = false;
+                    updateKeySteer();
+                }
+                if (event.code === "ArrowUp" || event.code === "KeyW") {
+                    keyThrottleUp = false;
+                    updateKeyThrottle();
+                }
+                if (event.code === "ArrowDown" || event.code === "KeyS") {
+                    keyThrottleDown = false;
+                    updateKeyThrottle();
+                }
+            }
+
+            function bindPaletteControls() {
+                const moveHandle = (event) => {
+                    const rect = paletteTrack.getBoundingClientRect();
+                    const ratio = (event.clientX - rect.left) / rect.width;
+                    const steer = Math.min(1, Math.max(-1, ratio * 2 - 1));
+                    pointerSteer = steer;
+                    updateHandlePosition(steer);
+                };
+
+                const releaseHandle = (event) => {
+                    if (event && event.pointerId !== undefined && paletteTrack.hasPointerCapture(event.pointerId)) {
+                        paletteTrack.releasePointerCapture(event.pointerId);
+                    }
+                    if (!pointerSteerActive) {
+                        return;
+                    }
+                    pointerSteerActive = false;
+                    pointerSteer = 0;
+                    paletteTrack.classList.remove('active');
+                    paletteHandle.style.transition = 'left 220ms ease';
+                    updateHandlePosition(0);
+                };
+
+                paletteTrack.addEventListener('pointerdown', (event) => {
+                    pointerSteerActive = true;
+                    if (event.pointerId !== undefined) {
+                        paletteTrack.setPointerCapture(event.pointerId);
+                    }
+                    paletteTrack.classList.add('active');
+                    paletteHandle.style.transition = 'none';
+                    moveHandle(event);
+                });
+
+                paletteTrack.addEventListener('pointermove', (event) => {
+                    if (!pointerSteerActive) {
+                        return;
+                    }
+                    moveHandle(event);
+                });
+
+                paletteTrack.addEventListener('pointerup', releaseHandle);
+                paletteTrack.addEventListener('pointercancel', releaseHandle);
+                paletteTrack.addEventListener('pointerleave', (event) => {
+                    if (pointerSteerActive) {
+                        releaseHandle(event);
+                    }
+                });
+            }
+
+            function bindPedal(button, value) {
+                const press = (event) => {
+                    event.preventDefault();
+                    if (event.pointerId !== undefined) {
+                        button.setPointerCapture(event.pointerId);
+                    }
+                    pointerThrottle = value;
+                    button.classList.add('pressed');
+                };
+
+                const release = (event) => {
+                    if (event && event.pointerId !== undefined && button.hasPointerCapture(event.pointerId)) {
+                        button.releasePointerCapture(event.pointerId);
+                    }
+                    if (pointerThrottle === value) {
+                        pointerThrottle = 0;
+                    }
+                    button.classList.remove('pressed');
+                };
+
+                button.addEventListener('pointerdown', press);
+                button.addEventListener('pointerup', release);
+                button.addEventListener('pointercancel', release);
+                button.addEventListener('pointerleave', () => {
+                    if (pointerThrottle === value) {
+                        pointerThrottle = 0;
+                        button.classList.remove('pressed');
+                    }
+                });
+            }
+
+            document.addEventListener("keydown", handleKeyDown);
+            document.addEventListener("keyup", handleKeyUp);
+
+            document.addEventListener("touchstart", () => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            }, { passive: true });
+
+            overlay.addEventListener("click", () => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            });
+
+            startButton.addEventListener("click", () => {
+                if (!gameRunning) {
+                    startGame();
+                }
+            });
+
+            bindPaletteControls();
+            bindPedal(accelerateButton, 1);
+            bindPedal(brakeButton, -1);
+
+            window.addEventListener("resize", () => {
+                resetCarPosition();
+                updateHandlePosition(pointerSteerActive ? pointerSteer : 0);
+            });
+
+            overlayMessage.textContent = "Prêt ?";
+            overlaySubtext.textContent = "Palette tactile ou flèches pour diriger. Pédales pour accélérer ou freiner.";
+            bestValue.textContent = bestScore.toFixed(1);
+            updateHandlePosition(0);
+            resetCarPosition();
+        })();
+    </script>
+</body>
+</html>
